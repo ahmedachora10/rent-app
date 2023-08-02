@@ -67,7 +67,9 @@ endif;
 
                     <div class="d-flex justify-content-start align-items-center">
                         <div class="text-center">
-                            <img src="img/main-logo.jpeg" alt="logo" width="100" class="mx-auto">
+                            <a href="<?= url('/') ?>" class="link-underline link-underline-opacity-0">
+                                <img src="<?= url('img/main-logo.jpeg') ?>" alt="logo" width="100" class="mx-auto">
+                            </a>
                         </div>
 
                         <h1 class="text-center text-primary fw-bold fs-5 px-4 py-3 border-end">حساب جديد</h1>

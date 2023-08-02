@@ -2,7 +2,9 @@
     <div class="container">
         <div class="row justify-content-between align-items-center">
             <div class="col-md-4 col-2 text-right">
-                <img src="img/main-logo.jpeg" alt="LOGO" width="100">
+                <a href="<?= url('/') ?>" class="link-underline link-underline-opacity-0">
+                    <img src="<?= url('img/main-logo.jpeg') ?>" alt="LOGO" width="100">
+                </a>
             </div>
             <div class="col-md-8 col-10">
                 <ul class="list-unstyled d-flex justify-content-end align-items-center">
