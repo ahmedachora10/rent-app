@@ -20,7 +20,7 @@
         $country = request('country', 'post', 'mixed');
         $city = request('city', 'post', 'mixed');
 
-        var_dump(!$username || !$phone_number || !$email || !$address || !$country || !$city);
+        var_dump(!$username, !$phone_number, !$email, !$address, !$country, !$city);
 
         if(!$username || !$phone_number || !$email || !$address || !$country || !$city) :
             $errors['required'] = ' الحقول مطلوبة ';
