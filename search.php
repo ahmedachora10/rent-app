@@ -8,7 +8,7 @@
         header('Location: '. url('index.php'));exit;
     endif;
 
-    $products = select_records('devices', "device_name like '%$search%'");
+    $products = select_records('devices', "device_name like '%$search%' and block_status=1");
 
 ?>
 
