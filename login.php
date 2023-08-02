@@ -1,80 +1,90 @@
+<?php require 'templates/html_start.php'; ?>
+
 <?php
-session_start();
-include('includes/config.php');
-error_reporting(0);
-if(isset($_POST['login']))
-{
-  $email=$_POST['email'];
-  $password=md5($_POST['password']);
-  $sql ="SELECT EmailId,Password,FullName FROM tblusers WHERE EmailId=:email and Password=:password and type='user'";
-  $query= $dbh -> prepare($sql);
-  $query-> bindParam(':email', $email, PDO::PARAM_STR);
-  $query-> bindParam(':password', $password, PDO::PARAM_STR);
-  $query-> execute();
-  $results=$query->fetchAll(PDO::FETCH_OBJ);
-  if($query->rowCount() > 0)
-  {
-    $_SESSION['login']=$_POST['email'];
-    $_SESSION['fname']=$results->FullName;
-    $currentpage=$_SERVER['REQUEST_URI'];
-    echo "<script type='text/javascript'> document.location = 'index.php'; </script>";
-  } else{
 
-    echo "<script>alert('Invalid Details');</script>";
+    if(auth()):
+        header('Location: '. url('/index.php')); exit;
+    endif;
 
-  }
+    $errors = [];
 
-}
+    if(isset($_POST['login'])):
+    
+        $username = request('username', 'post', 'string');
+        $password = request('password', 'post', 'mixed');
+
+        if(!$password || !$username):
+            $errors['credentials'] = ' الحقول مطلوبة ';
+        endif;
+
+        if(count($errors) < 1):
+            $password = md5($password);
+            $findUser = findOne('tblusers', "FullName='$username' and Password='$password'");
+
+            if($findUser) {
+                user_login($findUser->id);
+                header('Location: '. url('/index.php')); exit;
+            }
+
+            $errors['credentials'] = 'البيانات غير صحيحة';
+
+        endif;
+    endif;
+
 
 ?>
-<!DOCTYPE html>
-<html lang="ar">
 
-<head>
-    <meta charset="utf-8">
-    <meta content="width=device-width, initial-scale=1.0" name="viewport">
-    <meta content="Free HTML Templates" name="keywords">
-    <meta content="Free HTML Templates" name="description">
 
-    <link href="img/favicon.ico" rel="icon">
+<section class="product-details">
+    <div class="container">
 
-    <link rel="preconnect" href="https://fonts.gstatic.com">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">  
+        <div class="d-flex justify-content-center align-items-center vh-100">
+            <div class="col-lg-8 col-md-10 col-11 my-5">
 
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css" rel="stylesheet">
+                <div class="p-5 shadow">
 
-    <link href="lib/animate/animate.min.css" rel="stylesheet">
-    <link href="lib/owlcarousel/assets/owl.carousel.min.css" rel="stylesheet">
-
-    <link href="css/style.css" rel="stylesheet">
-</head>
-
-<body dir='rtl'>
-<center>
-<br><br><br><br>
-
-    <div class="container-fluid">
-    <div class="col-lg-5 mb-5">
-                <div class="bg-light p-30 mb-30">
-                <div class="contact-form bg-light p-30">
-                    <div id="success"></div>
-                            <h2 class="section-title position-relative text-uppercase mx-xl-5 mb-4"><span class="bg-secondary pr-3">تسجيل الدخول</span></h2>
-                    <form  method="post">
-                        <div class="control-group">
-                        <input type="email" class="form-control" name="email" placeholder="البريد الالكتروني*" required="required">
-                            <p class="help-block text-danger"></p>
+                    <div class="d-flex justify-content-start align-items-center">
+                        <div class="text-center">
+                            <img src="img/main-logo.jpeg" alt="logo" width="100" class="mx-auto">
                         </div>
-                        <div class="control-group">
-                        <input type="password" class="form-control" name="password" placeholder="كلمة المرور*" required="required">
-                            <p class="help-block text-danger"></p>
+
+                        <h1 class="text-center text-primary fw-bold fs-5 px-4 py-3 border-end"> تسجيل الدخول </h1>
+                    </div>
+
+                    <hr>
+
+                    <?php if(isset($errors['credentials'])): ?>
+                    <div class="alert alert-danger"><?= $errors['credentials'] ?></div>
+                    <?php endif;?>
+
+                    <form action="<?= url('/login.php') ?>" method="post" class="row pt-4">
+                        <div class="form-group col-md-6 mb-3">
+                            <label for="username" class="form-tabel mb-3">اسم المستخدم</label>
+                            <input type="text" name="username" class="form-control">
                         </div>
-                        
-                        <div>
-                            <button class="btn btn-primary py-2 px-4" type="submit" name="login">
-                                تسجيل الدخول</button>
+
+                        <div class="form-group col-md-6 mb-3">
+                            <label for="password" class="form-tabel mb-3"> كلمة المرور </label>
+                            <input type="password" name="password" class="form-control">
+                        </div>
+
+                        <div class="col-12">
+                            <button class="btn btn-secondary text-white px-5 fw-bold mt-4 rounded-1"
+                                name="login">الدخول</button>
                         </div>
                     </form>
-                    <br><p><a href="forgotpassword.php" data-toggle="modal" data-dismiss="modal" style="color: #49a3ff;">نسيت كلمة المرور؟</a></p>
 
+                    <hr class="my-4">
+
+                    <div class="row justify-content-between align-items-center">
+                        <a class="text-secondary  col" href="<?= url('forgotpassword.php') ?>">هل نسيت كلمة المرور</a>
+                        <a class="text-secondary text-start col" href="<?= url('/register.php') ?>"> ليس لديك حساب؟ </a>
+                    </div>
                 </div>
             </div>
+        </div>
+
+    </div>
+</section>
+
+<?php require 'templates/html_end.php'; ?>

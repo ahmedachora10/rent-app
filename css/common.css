@@ -1,0 +1,33 @@
+
+    .banner {
+    height: 550px;
+    /* Set the desired height of the banner */
+    /* background-image: url('/img/banner.jpeg'); */
+    /* Replace 'path/to/your/image.jpg' with the actual path to your background image */
+    background-size: cover;
+    /* Adjusts the size of the background image to cover the entire container */
+    background-position: center;
+    /* Centers the background image horizontally and vertically */
+    color: #fff;
+    /* Text color for the banner content */
+    text-align: center;
+    padding-top: 250px;
+    /* Adjust this value to vertically position your content */
+}
+
+.card-img {
+    height: 250px !important;
+}
+
+.card-img-top {
+    height: 182px;
+}
+
+.product-cart {
+    width: 100% !important;
+}
+
+#menu-bar li a:hover {
+    color: #2b7fbd !important;
+    transition: .3s;
+}

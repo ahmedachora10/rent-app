@@ -1,291 +1,321 @@
-<?php 
-session_start();
-include('includes/config.php');
-error_reporting(0);
-$vhid=intval($_GET['vhid']);
+<?php require 'templates/html_start.php'; ?>
 
-if(isset($_POST['submit']))
-{
-  $fromdate=$_POST['fromdate'];
-  $date= date("Y/m/d"); 
-  $date2=strtotime($date);
-  $fromdate2=strtotime($fromdate);
-  $duration=$_POST['duration'];
-  $time=$_POST['time'];
-  include "includes/connect.php";
+<?php
 
-  if($time=='hour'){
-    $chk = mysqli_query($con,"SELECT PricePerHour FROM devices WHERE id = '$vhid'");
-						while($user = mysqli_fetch_array($chk))
-						{
-			       $hour=$user[0];
-           } 
-           $total =$hour*$duration;
-  }
+    $id = request('product_id');
 
-  if($time=='day'){
-    $chk = mysqli_query($con,"SELECT PricePerDay FROM devices WHERE id = '$vhid'");
-						while($user = mysqli_fetch_array($chk))
-						{
-			       $day=$user[0];
-           }
-           $total=$day*$duration;
-  }
+    if(!$id):
+        header('Location: '. url('index.php'));exit;
+    endif;
 
+    $product = findOne('devices', "id=$id and block_status=1");
 
-  $useremail=$_SESSION['login'];
-  $userID = mysqli_query($con,"SELECT id FROM tblusers WHERE EmailId = '$useremail'");
-  while($us = mysqli_fetch_array($userID))
-  {
-   $user_id=$us[0];
- }
+    if(!$product):
+        header('Location: '. url('index.php'));exit;
+    endif;
 
-  $vhid=$_GET['vhid'];
- 
-   $sql3 = "SELECT device_name,device_owner FROM devices WHERE id = '$vhid'";
-                    $query3 = $dbh -> prepare($sql3);
-                    $query3->execute();
-                    $results3=$query3->fetchAll(PDO::FETCH_OBJ);
-                    
-                    if($query3->rowCount() > 0)
-                    {
-                      foreach($results3 as $result3)
-                      {
-                        $device= htmlentities($result3->device_name);
-                        $device_id= htmlentities($result3->id);
-                        $owner= htmlentities($result3->device_owner);
-                      }}
+    $owner = findOne('tblusers', "FullName='{$product->device_owner}'");
+    if(!$owner):
+        header('Location: '. url('index.php'));exit;
+    endif;
 
+    $user_rating = false;
+    $user_booking = false;
 
-                      $ownerID = mysqli_query($con,"SELECT id FROM tblusers WHERE FullName = '$owner'");
-                      while($own = mysqli_fetch_array($ownerID))
-                      {
-                       $owner_id=$own[0];
-                     }
-// //valid date
-$sql4 = "SELECT booking_date from tblbooking where device_name='$device' and booking_date='$fromdate'";
-                    $query4 = $dbh -> prepare($sql4);
-                    $query4->execute();
-                    $results4=$query4->fetchAll(PDO::FETCH_OBJ);
-                    
-                    if($query4->rowCount() > 0)
-                    {
-                      foreach($results4 as $result4)
-                      {
-                        $bookDate= htmlentities($result4->booking_date);
-                      }}
-   if($bookDate==$fromdate){
-    echo "<script>alert('لا يمكنك حجز هذا الجهاز في هذا التاريخ بسبب وجود حجز مسبق له.');</script>";
-   }else{
+    if(auth()):
+        $user_rating = findOne('review_table', "device_id={$product->id} and user_name='" . auth()->EmailId . "'");
+        $user_booking = findOne('tblbooking', "device_name='{$product->device_name}' and username='". auth()->EmailId ."'");
+    endif;
+?>
 
-    if($fromdate2 > $date2){    
-      // echo $device.'-'.$vhid.'-'.$fromdate.'-'.$time.'-'.$duration.'-'.$total.'-'.$useremail.'-'.$user_id.'-'.$owner.'-'.$owner_id;
-   $sql="INSERT INTO tblbooking
-   VALUES (NULL,'$device','$vhid','$fromdate','$time','$duration','$total','$useremail','$user_id','$owner','$owner_id',0,0)";
+<?php
 
-    $query = $dbh->prepare($sql);
-    $query->execute();
-    $lastInsertId = $dbh->lastInsertId();
-    if($lastInsertId)
-    {
-      echo "<script>alert('تم الحجز بنجاح ، الرجاء انتظار الرد من مالك الجهاز.');</script>";
-            echo "<script type='text/javascript'> document.location = 'index.php'; </script>";
+    $errors = [];
+    $success = null;
 
-    }
-    else 
-    {
-      echo "<script>alert('هناك مشكلة. الرجاء المحاولة مجددا');</script>";
-      echo "<script type='text/javascript'> document.location = 'index.php'; </script>";
-    } 
-  }else{
-    echo "<script>alert('لا يمكنك اختيار يوم من الماضي');</script>";
-  }
-   }
-}
+    if(isset($_POST['booking-now'])):
+
+        if(!auth()):
+            header('Location: '. url('/login.php')); exit;
+        endif;
+
+        $booking_date = request('fromdate', 'post', 'date');
+        $booking_duration_type = request('time', 'post', 'string');
+        $booking_duration = request('duration', 'post', 'int');
+
+        if(!$booking_date || !$booking_duration_type || !$booking_duration):
+            $errors['required'] = 'كل الحقول مطلوبة';
+        endif;
+
+        $price = [
+            'hour' => $product->PricePerHour,
+            'day' => $product->PricePerDay,
+        ];
+
+        if(count($errors) < 1):
+            $booking_already_taken = findOne('tblbooking', "booking_date='$booking_date' and device_name='{$product->device_name}'");
+
+            if(!$booking_already_taken):
+                $new_booking = insert_record('tblbooking', [
+                    'device_name' => $product->device_name,
+                    'booking_date' => $booking_date,
+                    'booking_type' => $booking_duration_type,
+                    'booking_duration' => $booking_duration,
+                    'total' => $price[$booking_duration_type] * $booking_duration,
+                    'username' => auth()->EmailId,
+                    'device_owner' => $owner->FullName,
+                    'status' => 0,
+                    'payment_status' => 0,
+                ]);
+
+                if($new_booking):
+                    $success = 'تم اضافة الحجز بنجاح';
+                    $user_booking = findOne('tblbooking', "device_name='{$product->device_name}' and username='". auth()->EmailId ."'");
+                else:
+                    $errors['error'] = 'حدث خطأ اثناء الحفظ';
+                endif;
+
+            else:
+                $errors['exists'] = 'لا يمكنك حجز هذا الجهاز في هذا التاريخ بسبب وجود حجز مسبق له.';
+            endif;
+        endif;
+    endif;
+
+    if(isset($_POST['save-rating'])):
+        $rating = request('rating', 'post', 'int');
+        $comment = request('comment', 'post', 'mixed');
+
+        if(!$rating || !$comment):
+            $errors['required'] = 'كل الحقول مطلوبة';
+        endif;
+
+        if(count($errors) < 1 && $user_booking):
+            if($user_rating):
+                update_record('review_table', [
+                    'user_rating' => $rating,
+                    'user_review' => $comment,
+                ], "review_id={$user_rating->review_id}");
+            else:
+                insert_record('review_table', [
+                    'device_id' => $product->id,
+                    'user_name' => auth()->EmailId,
+                    'user_rating' => $rating,
+                    'user_review' => $comment,
+                    'datetime' => time()
+                ]);
+            endif;
+            $success = 'تم اضافة التقييم بنجاح';
+            $user_rating = findOne('review_table', "device_id={$product->id} and user_name='" . auth()->EmailId . "'");
+        endif;
+    endif;
+
+?>
+
+<?= theme_header(); ?>
+
+<section class="product-details">
+    <div class="container">
+        <?php if($success !== null):?>
+        <div class="alert alert-success my-4"><?= $success ?></div>
+        <?php endif;?>
+        <h5 class="fw-bold text-primary fs-5 pb-3 mt-5 pt-5"> تفاصيل المنتج / <?= $product->device_name  ?>
+        </h5>
+        <hr>
+        <div class="card p-3 border-0 mt-5">
+            <div class="row">
+                <div class="col-md-6 text-center align-self-center">
+                    <div class="owl-carousel owl-theme">
+                        <div class="item col-lg-8 col-md-9 col-11 mx-auto">
+                            <img class="img-fluid" src="<?= url('img/'.$product->dimage) ?>">
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 info mt-md-4 mt-5">
+                    <div class="row title">
+                        <div class="col">
+                            <h2 class="text-primary"><?= $product->device_name ?></h2>
+                        </div>
+                        <div class="col text-right"><a href="#"><i class="fa fa-heart-o"></i></a></div>
+                    </div>
+                    <p><?= $product->device_desc ?></p>
+
+                    <div class="reviews my-4">
+                        <div class="rateYo" data-rating=""></div>
+                    </div>
+
+                    <div class="mt-3"></div>
+
+                    <div class="row justify-content-between align-items-center">
+                        <div class="col-md-6 col-12">
+                            <?= product_detail($product->device_owner, 'user') ?>
+                        </div>
+
+                        <div class="col-md-6 col-12">
+                            <?= product_detail($owner->EmailId, 'envelope') ?>
+                        </div>
+
+                        <div class="col-md-6 col-12">
+                            <?= product_detail($owner->ContactNo, 'phone') ?>
+                        </div>
+
+                        <div class="col-md-6 col-12">
+                            <?= product_detail($owner->Address, 'map') ?>
+                        </div>
+
+                        <div class="col-md-6 col-12">
+                            <?= product_detail($product->PricePerHour . " ر.س للساعة", 'money-bill') ?>
+                        </div>
+
+                        <div class="col-md-6 col-12">
+                            <?= product_detail($owner->City, 'city') ?>
+                        </div>
+
+                        <div class="col-md-6 col-12">
+                            <?= product_detail($product->PricePerDay . ' ر.س لليوم', 'money-bill') ?>
+                        </div>
+
+                        <div class="col-12 mt-5">
+                            <div class="row justify-content-start align-items-center">
+                                <div class="col-12 col-sm-auto mb-3">
+                                    <a href="#" id="booking-now"
+                                        class="btn btn-danger fw-bold px-5 text-white rounded-1 col-md-auto col-12"
+                                        data-bs-toggle="modal" data-bs-target="#book-in-now-modal">احجز
+                                        الان</a>
+                                </div>
+                                <?php if($user_booking && $user_booking->status == 1 && $user_booking->payment_status == 1):?>
+                                <div class="col-12 col-sm-auto mb-3">
+                                    <a href="#" id="booking-now"
+                                        class="btn btn-warning fw-bold px-5 rounded-1 col-md-auto col-12"
+                                        data-bs-toggle="modal" data-bs-target="#rating-modal">
+                                        التقييم
+                                    </a>
+                                </div>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Book Now Modal -->
+<div class="modal fade" id="book-in-now-modal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">احجز الان</h5>
+                <button type="button" class="btn-close ms-0" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <?php if(count($errors) > 0 && isset($_POST['booking-now'])): foreach($errors as $error):?>
+                <div class="alert alert-danger my-3"><?= $error ?></div>
+                <?php endforeach; endif;?>
+                <form action="<?= url('/details.php?product_id='.$product->id) ?>" method="post">
+                    <div class="form-group mb-3">
+                        <label for="fromdate" class="form-label">تاريج الحجز</label>
+                        <input type="date" min="<?= date('Y-m-d') ?>" class="form-control" name="fromdate">
+                    </div>
+
+                    <div class="form-group mb-3">
+                        <label for="time" class="form-label">نوع مدة الاستئجار</label>
+                        <select name="time" id="time" class="form-control">
+                            <option value="hour"> ساعة </option>
+                            <option value="day"> يوم </option>
+                        </select>
+                    </div>
+
+                    <div class="form-group mb-3">
+                        <label for="duration" class="form-label"> مدة الاستئجار</label>
+                        <input type="number" class="form-control" name="duration">
+                    </div>
+
+                    <button class="mt-4 px-5 btn btn-dark rounded-1" name="booking-now">احجز</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Rating Modal -->
+<div class="modal fade" id="rating-modal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    تقييم منتج <?= $product->device_name ?>
+                </h5>
+                <button type="button" class="btn-close ms-0" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <?php if(count($errors) > 0 && isset($_POST['save-rating'])): foreach($errors as $error):?>
+                <div class="alert alert-danger my-3"><?= $error ?></div>
+                <?php endforeach; endif;?>
+                <form action="<?= url('/details.php?product_id='. $product->id) ?>" method="post">
+
+                    <div class="form-group mb-3">
+                        <label for="rating" class="form-label"> التقييم </label>
+                        <div class="rating-booking"></div>
+                        <input type="hidden" id="rating" name="rating" value="<?= @$user_rating->user_rating ?>">
+                    </div>
+
+                    <div class="form-group mb-3">
+                        <label for="comment" class="form-label"> التعليق </label>
+                        <textarea name="comment" id="comment" cols="30" rows="5"
+                            class="form-control"><?= @$user_rating->user_review ?></textarea>
+                    </div>
+
+                    <button class="mt-4 px-5 btn btn-dark rounded-1" name="save-rating">حفظ</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<?php
+    $scripts = "
+    <script>
+    $(document).ready(function() {
+    $('.owl-carousel').owlCarousel({
+        loop: true,
+        margin: 10,
+        nav: false,
+        rtl: true,
+        items: 1
+    })
+    ";
+
+    if(count($errors) > 0 && isset($_POST['booking-now'])):
+        $scripts .= "$('#book-in-now-modal').modal('show');";
+    endif;
+
+    if(count($errors) > 0 && isset($_POST['save-rating'])):
+        $scripts .= "$('#rating-modal').modal('show');";
+    endif;
+
+    $rate = $user_rating === false ? 0 : $user_rating->user_rating;
+
+    $scripts .= '
+        $(".rating-booking").rateYo({
+            starWidth: "40px",
+        rating: "'. $rate .'",
+            precision: 0,
+            rtl: true
+        });
+
+        $(".rating-booking").click(function() {
+            const rating = $(".rating-booking").rateYo("option", "rating");
+
+            $("#rating").val(rating);
+
+        });
+
+    ';
+
+    $scripts .= "});</script>";
+
 ?>
 
 
-<!DOCTYPE html>
-<html lang="ar">
-
-<head>
-    <meta charset="utf-8">
-    <meta content="width=device-width, initial-scale=1.0" name="viewport">
-    <meta content="Free HTML Templates" name="keywords">
-    <meta content="Free HTML Templates" name="description">
-
-    <link href="img/favicon.ico" rel="icon">
-
-    <link rel="preconnect" href="https://fonts.gstatic.com">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">  
-
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css" rel="stylesheet">
-
-    <link href="lib/animate/animate.min.css" rel="stylesheet">
-    <link href="lib/owlcarousel/assets/owl.carousel.min.css" rel="stylesheet">
-
-    <link href="css/style.css" rel="stylesheet">
-</head>
-
-<body dir='rtl'>
-<?php include('includes/header.php'); ?>
-   
-    <center>
-   
-
-    <div class="container-fluid pt-5 pb-3">
-        <h2 class="section-title position-relative text-uppercase mx-xl-5 mb-4"><span class="bg-secondary pr-3"> تفاصيل الجهاز</span></h2>
-       
-    </div>
-    <!-- Products End -->
-    <div class="container-fluid pb-5">
-        <div class="row px-xl-5">
-            <div class="col-lg-5 mb-30">
-                <div id="product-carousel" class="carousel slide" data-ride="carousel">
-                    <div class="carousel-inner bg-light">
-                        <div class="carousel-item active">
-                        <?php 
-          $vhid=intval($_GET['vhid']);
-          
-          
-          $sql = "SELECT * FROM `devices` WHERE id =:vhid";
-          $query = $dbh -> prepare($sql);
-          $query->bindParam(':vhid',$vhid, PDO::PARAM_STR);
-          $query->execute();
-          $results=$query->fetchAll(PDO::FETCH_OBJ);
-          $cnt=1;
-          if($query->rowCount() > 0)
-          {
-            foreach($results as $result)
-            {  
-              $_SESSION['brndid']=$result->bid;  
-              $owner=htmlentities($result->device_owner);
-              ?> 
-              <?php
-                 $sql2 = "SELECT * FROM `tblusers` WHERE FullName ='$owner'";
-                 $query2 = $dbh -> prepare($sql2);
-                 $query2->execute();
-                 $results2=$query2->fetchAll(PDO::FETCH_OBJ);
-                 if($query2->rowCount() > 0)
-                 {
-                   foreach($results2 as $result2)
-                   {  
-                ?> 
-                            <img class="w-100 h-100" src="img/<?php echo htmlentities($result->front_image);?>" alt="Image">
-                        </div>
-                        <div class="carousel-item">
-                            <img class="w-100 h-100" src="img/<?php echo htmlentities($result->behind_image);?>" alt="Image">
-                        </div>
-                        <div class="carousel-item">
-                            <img class="w-100 h-100" src="img/<?php echo htmlentities($result->dimage);?>" alt="Image">
-                        </div>
-                       
-                    </div>
-                    <a class="carousel-control-prev" href="#product-carousel" data-slide="prev">
-                        <i class="fa fa-2x fa-angle-left text-dark"></i>
-                    </a>
-                    <a class="carousel-control-next" href="#product-carousel" data-slide="next">
-                        <i class="fa fa-2x fa-angle-right text-dark"></i>
-                    </a>
-            </div>
-            </div>
-            <div class="col-lg-7 h-auto mb-30">
-                <div class="h-100 bg-light p-30">
-                    
-            <div class="container">
-              
-                  <h2><?php echo htmlentities($result->device_name);?>  <br>
-                  التفاصيل: <?php echo htmlentities($result->device_desc);?></h2>
-                </div>
-                  <hr>
-                  <strong>اسم مالك الجهاز: <?php echo htmlentities($result2->FullName);?> </strong><br>
-                  <strong>  بريد مالك الجهاز: <?php echo htmlentities($result2->EmailId);?> </strong><br>
-                  <strong>  هاتف مالك الجهاز: <?php echo htmlentities($result2->ContactNo);?> </strong><br>
-                  <strong>عنوان مالك الجهاز : </strong><?php echo htmlentities($result2->Address);?><br>
-                  <strong> مدينة مالك الجهاز : </strong><?php echo htmlentities($result2->City);?><br>
-
-
-                  <?php
-                   }}
-                  ?>
-                  <strong>سعر الساعة: <?php echo htmlentities($result->PricePerHour);?>&nbsp;ريال سعودي </strong><br>
-                  <strong>سعر اليوم: <?php echo htmlentities($result->PricePerDay);?>&nbsp;ريال سعودي </strong><br>
-
-                  </div>
-                </div>
-              </div>
-          
-                </div>
-            </div>
-   <?php }} ?>
-   <div class="row px-xl-1">
-            <div class="col">
-                <div class="bg-light p-30">
-                    <div class="nav nav-tabs mb-4">
-                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                        <!-- <h2> احجز الان</h2> -->
-                        <aside class="col-md-6">
-
-           
-<div class="sidebar_widget">
-  <div class="widget_heading">
-    <h5><i class="fa fa-envelope" aria-hidden="true"></i>احجز الان</h5>
-  </div>
-  <form method="post">
-    <div class="form-group">
-      <label> تاريخ الحجز</label>
-      <?php $past= date("Y/m/d"); ?>
-      <input type="date" class="form-control" name="fromdate" placeholder="From Date" min='<?php echo $past;?>' required>
-    </div>
-    <div class="form-group">
-      <label>نوع مدة الاستئجار</label>
-      <select class="form-control" name="time" required>
-      <option ></option>
-      <option value='hour' name='hour'>ساعة</option>
-      <option value='day' name='day'>يوم</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label>كمية المدة</label>
-      <input type="number" class="form-control" name="duration" placeholder="ساعة او ساعتين\يوم او يومين" required>
-    </div>
-    <br>
-
-    <?php if($_SESSION['login'])
-    {?>
-      <div class="form-group">
-        <input type="submit" class="btn" style="background-color: #ffc107;"  name="submit" value="احجز الان">
-      </div>
-      <?php 
-    } else { ?><center>
-   <a href="login.php" class="btn" style="background-color: #ffc107;" >
-   تسجيل الدخول من اجل الحجز</a>
-
-      <?php 
-    } ?>
-  </form>
-</div>
-</aside> </div>
-                        </div>
-                        </div>
-                        </div>
-                        </div>
-    <a href="#" class="btn btn-primary back-to-top"><i class="fa fa-angle-double-up"></i></a>
-
-    <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.bundle.min.js"></script>
-    <script src="lib/easing/easing.min.js"></script>
-    <script src="lib/owlcarousel/owl.carousel.min.js"></script>
-
-    <script src="mail/jqBootstrapValidation.min.js"></script>
-    <script src="mail/contact.js"></script>
-
-    <script src="js/main.js"></script>
-</body>
-
-</html>
+<?php require 'templates/html_end.php'; ?>

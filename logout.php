@@ -1,15 +1,12 @@
 <?php
-session_start(); 
-$_SESSION = array();
-if (ini_get("session.use_cookies")) {
-    $params = session_get_cookie_params();
-    setcookie(session_name(), '', time() - 60*60,
-        $params["path"], $params["domain"],
-        $params["secure"], $params["httponly"]
-    );
-}
-unset($_SESSION['login']);
-session_destroy(); 
-header("location:index.php"); 
-?>
+require_once 'includes'. DIRECTORY_SEPARATOR .'config.php';
 
+require_once ROOT . 'utils' . DS . 'functions.php';
+
+if($user = auth()) {
+    user_logout($user->id);
+}
+
+header('Location: ' . url('/index.php'));
+
+?>

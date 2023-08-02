@@ -1,13 +1,14 @@
 /******* Bootstrap Theming ********/
 
-$primary: #FFD333;
-$secondary: #F5F5F5;
+// $primary: #787568;
+$primary: #2b7fbd;
+$secondary: #27a8e1;
 $light: #FFFFFF;
-$dark: #3D464D;
+$dark: #000;
 
 $font-family-sans-serif: 'Roboto', sans-serif;
 
-$body-bg: $secondary;
+$body-bg: #fff;
 
 $body-color: #6C757D;
 
@@ -25,7 +26,7 @@ $input-btn-focus-box-shadow: none;
 
 $input-placeholder-color: #999999;
 
-@import "bootstrap/scss/bootstrap";
+@import "bootstrap-5.3.0/scss/bootstrap";
 
 
 /********** Custom CSS ************/

@@ -1,189 +1,161 @@
+<?php require 'templates/html_start.php'; ?>
+
 <?php
-session_start();
-error_reporting(0);
-include('includes/config.php');
-if(strlen($_SESSION['login'])==0)
-{ 
-  header('location:index.php');
-}
-else{
-  if(isset($_POST['updateprofile']))
-  {
-    $name=$_POST['fullname'];
-    $mobileno=$_POST['mobilenumber'];
-    
-    $adress=$_POST['address'];
-    $city=$_POST['city'];
-    $country=$_POST['country'];
-    $email=$_SESSION['login'];
-    $sql="update tblusers set FullName=:name,ContactNo=:mobileno,Address=:adress,City=:city,Country=:country where EmailId=:email";
-    $query = $dbh->prepare($sql);
-    $query->bindParam(':name',$name,PDO::PARAM_STR);
-    $query->bindParam(':mobileno',$mobileno,PDO::PARAM_STR);
-    $query->bindParam(':adress',$adress,PDO::PARAM_STR);
-    $query->bindParam(':city',$city,PDO::PARAM_STR);
-    $query->bindParam(':country',$country,PDO::PARAM_STR);
-    $query->bindParam(':email',$email,PDO::PARAM_STR);
-    $query->execute();
-    $msg="تم تعديل الملف الشحصي بنجاح";
-  }
 
-  ?>
+    $user = auth();
 
-<!DOCTYPE html>
-<html lang="ar">
+    if(!$user) {
+        header('Location: '. url('/login.php')); exit;
+    }
 
-<head>
-    <meta charset="utf-8">
-    <meta content="width=device-width, initial-scale=1.0" name="viewport">
-    <meta content="Free HTML Templates" name="keywords">
-    <meta content="Free HTML Templates" name="description">
+    $errors = [];
+    $success = null;
 
-    <link href="img/favicon.ico" rel="icon">
+    if(isset($_POST['update-information'])):
 
-    <link rel="preconnect" href="https://fonts.gstatic.com">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">  
+        $username = request('username', 'post', 'string');
+        $phone_number = request('phone_number', 'post', 'string');
+        $email = request('email', 'post', 'email');
+        $address = request('address', 'post', 'mixed');
+        $country = request('country', 'post', 'mixed');
+        $city = request('city', 'post', 'mixed');
 
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css" rel="stylesheet">
+        if(!$username || !$phone_number || !$email || !$address || !$country || !$city) :
+            $errors['required'] = ' الحقول مطلوبة ';
+        endif;
 
-    <link href="lib/animate/animate.min.css" rel="stylesheet">
-    <link href="lib/owlcarousel/assets/owl.carousel.min.css" rel="stylesheet">
+        if(count($errors) < 1):
+            $update_user = update_record('tblusers', [
+                'FullName' => $username,
+                'type' => auth()->type,
+                'ContactNo' => $phone_number,
+                'EmailId' => $email,
+                'Address' => $address,
+                'Country' => $country,
+                'City' => $city,
+            ], "id={$user->id}");
 
-    <link href="css/style.css" rel="stylesheet">
-    <style>
-      .errorWrap {
-        padding: 10px;
-        margin: 0 0 20px 0;
-        background: #fff;
-        border-left: 4px solid #dd3d36;
-        -webkit-box-shadow: 0 1px 1px 0 rgba(0,0,0,.1);
-        box-shadow: 0 1px 1px 0 rgba(0,0,0,.1);
-      }
-      .succWrap{
-        padding: 10px;
-        margin: 0 0 20px 0;
-        background: #fff;
-        border-left: 4px solid #5cb85c;
-        -webkit-box-shadow: 0 1px 1px 0 rgba(0,0,0,.1);
-        box-shadow: 0 1px 1px 0 rgba(0,0,0,.1);
-      }
-    </style>
-</head>
+            if($update_user):
+                $success = 'تم تحديث البيانات بنجاح';
+                $user = findOne('tblusers', "id=".auth()->id);
+            else:
+                $errors['not_save'] = 'حدث خطأ اثناء تحديث البيانات';
+            endif;
+        endif;
 
-<body dir='rtl'>
-<?php include('includes/header.php'); ?>
 
-       <center> <h2><span>الملف الشخصي</span><br></h2>
- 
-      <?php 
-      $useremail=$_SESSION['login'];
-      $sql = "SELECT * from tblusers where EmailId=:useremail";
-      $query = $dbh -> prepare($sql);
-      $query -> bindParam(':useremail',$useremail, PDO::PARAM_STR);
-      $query->execute();
-      $results=$query->fetchAll(PDO::FETCH_OBJ);
-      $cnt=1;
-      if($query->rowCount() > 0)
-      {
-        foreach($results as $result)
-        { 
-          ?>
-          <section class="user_profile inner_pages">
-            <div class="container">
-              <div class="user_profile_info gray-bg padding_4x4_40">
-                
+    endif;
 
-                <div class="dealer_info">
-                  <h5><?php echo htmlentities($result->FullName);?></h5>
-                  <p><?php echo htmlentities($result->Address);?><br>
-                    <?php echo htmlentities($result->City);?>&nbsp;<?php echo htmlentities($result->Country);?></p>
-                  </div>
-                </div>    
-                <div class="row">
-                  
-                      
-                
-                  <div class="col-md-12 col-sm-3">
-                    <div class="col-md-6 col-sm-8">
-                      <div class="profile_wrap">
-                        <h5 class="uppercase underline">الاعدادات العامة</h5>
-                        <?php  
-                        if($msg)
-                        {
-                          ?>
-                          <div class="succWrap">
-                            <strong>تم</strong>:<?php echo htmlentities($msg); ?> 
-                          </div>
-                          <?php
-                        }?>
-                        <form  method="post">
-                          <div class="form-group">
-                            <label class="control-label">تاريخ التسجيل -</label>
-                            <?php echo htmlentities($result->RegDate);?>
-                          </div>
-                          <?php if($result->UpdationDate!="")
-                          {
-                            ?>
-                            <div class="form-group">
-                              <label class="control-label">آخر تحديث  -</label>
-                              <?php echo htmlentities($result->UpdationDate);?>
-                            </div>
-                            <?php 
-                          } ?>
-                          <div class="form-group">
-                            <label class="control-label">الاسم الكامل</label>
-                            <input class="form-control white_bg" name="fullname" value="<?php echo htmlentities($result->FullName);?>" id="fullname" type="text"  required>
-                          </div>
-                          <div class="form-group">
-                            <label class="control-label">البريد الالكتروني</label>
-                            <input class="form-control white_bg" value="<?php echo htmlentities($result->EmailId);?>" name="emailid" id="email" type="email" required readonly>
-                          </div>
-                          <div class="form-group">
-                            <label class="control-label">رقم العاتف</label>
-                            <input class="form-control white_bg" name="mobilenumber" value="<?php echo htmlentities($result->ContactNo);?>" id="phone-number" type="text" required>
-                          </div>
-                          <div class="form-group">
-                            <label class="control-label">العنوان</label>
-                            <textarea class="form-control white_bg" name="address" rows="4" ><?php echo htmlentities($result->Address);?></textarea>
-                          </div>
-                          <div class="form-group">
-                            <label class="control-label">البلد</label>
-                            <input class="form-control white_bg"  id="country" name="country" value="<?php echo htmlentities($result->Country);?>" type="text">
-                          </div>
-                          <div class="form-group">
-                            <label class="control-label">المدينة</label>
-                            <input class="form-control white_bg" id="city" name="city" value="<?php echo htmlentities($result->City);?>" type="text">
-                          </div>
+    if(isset($_POST['update_password'])):
 
-                          <div class="form-group">
-                            <button type="submit" name="updateprofile" class="btn bg-primary"  style="background-color: #49a3ff;"  >حفظ التغييرات <span class="angle_arrow"><i class="fa fa-angle-right"  style="color: #49a3ff;"  aria-hidden="true"></i></span></button>
-                          </div>
-                        </form>
-                      </div>
-                    </div>
-                  </div>
+        $password = request('password', 'post', 'mixed');
+        $confirm_password = request('confirm_password', 'post', 'mixed');
+
+        if( !$password || !$confirm_password):
+            $errors['required'] = ' الحقول مطلوبة ';
+        elseif($password !== $confirm_password):
+            $errors['not_equal'] = 'كلمة المرور غير متطابقة مع تأكيد كلمة المرور';
+        endif;
+
+        if(count($errors) < 1):
+            $update_user = update_record('tblusers', [
+                'password' => md5($password)
+            ], "id={$user->id}");
+
+            if($update_user):
+                $success = 'تم تحديث كملة المرور بنجاح';
+            else:
+                $errors['not_save'] = 'حدث خطأ اثناء تحديث كلمة المرور';
+            endif;
+        endif;
+    endif;
+
+?>
+
+<?= theme_header(); ?>
+
+<hr class="mt-5">
+
+<section class="profile my-4">
+    <div class="container">
+        <?php if($success !== null): ?>
+        <div class="alert alert-success mb-3"><?= $success ?></div>
+        <?php endif;?>
+
+        <?php if(count($errors) > 0): foreach ($errors as $error) :?>
+        <div class="alert alert-danger mb-3"><?= $error ?></div>
+        <?php endforeach; endif;?>
+        <div class="row justify-content-center align-items-center mt-5">
+            <div class="col-md-10 pb-4">
+                <div class="p-5">
+                    <h3 class="fw-bold text-primary mb-4">المعلومات الشخصية</h3>
+                    <form action="<?= url('/profile.php') ?>" method="post" class="row pt-4">
+                        <div class="form-group col-md-6 mb-3">
+                            <label for="username" class="form-tabel mb-3">اسم المستخدم</label>
+                            <input type="text" name="username" value="<?= @$user->FullName ?>" class="form-control">
+                        </div>
+
+                        <div class="form-group col-md-6 mb-3">
+                            <label for="phone_number" class="form-tabel mb-3"> الهاتف </label>
+                            <input type="text" name="phone_number" value="<?= @$user->ContactNo ?>"
+                                class="form-control">
+                        </div>
+
+                        <div class="form-group col-md-6 mb-3">
+                            <label for="email" class="form-tabel mb-3"> البريد الالكتروني </label>
+                            <input type="email" name="email" value="<?= @$user->EmailId ?>" class="form-control">
+                        </div>
+
+                        <div class="form-group col-md-6 mb-3">
+                            <label for="address" class="form-tabel mb-3"> العنوان</label>
+                            <input type="text" name="address" value="<?= @$user->Address ?>" class="form-control">
+                        </div>
+
+                        <div class="form-group col-md-6 mb-3">
+                            <label for="country" class="form-tabel mb-3"> الدولة </label>
+                            <input type="text" name="country" value="<?= @$user->Country ?>" class="form-control">
+                        </div>
+
+                        <div class="form-group col-md-6 mb-3">
+                            <label for="city" class="form-tabel mb-3"> المدينة </label>
+                            <input type="text" name="city" value="<?= @$user->City ?>" class="form-control">
+                        </div>
+
+                        <div class="col-12">
+                            <button class="btn btn-secondary text-white px-5 fw-bold mt-4 rounded-1"
+                                name="update-information">تحديث</button>
+                        </div>
+                    </form>
                 </div>
-              </section>
-              <?php 
-            }
-          } ?>
-    
-    
-    <a href="#" class="btn btn-primary back-to-top"><i class="fa fa-angle-double-up"></i></a>
-    
-    <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.bundle.min.js"></script>
-    <script src="lib/easing/easing.min.js"></script>
-    <script src="lib/owlcarousel/owl.carousel.min.js"></script>
+            </div>
 
-   
-    <script src="mail/jqBootstrapValidation.min.js"></script>
-    <script src="mail/contact.js"></script>
+            <hr class="col-12">
 
-    
-    <script src="js/main.js"></script>
-</body>
+            <div class="col-md-10 mt-5">
+                <div class="p-4">
+                    <h3 class="fw-bold text-primary mb-4"> تغيير كلمة المرور </h3>
+                    <form action="<?= url('/profile.php') ?>" method="post" class="row pt-4">
+                        <div class="form-group col-md-6 mb-3">
+                            <label for="password" class="form-tabel mb-3"> كلمة المرور </label>
+                            <input type="password" name="password" class="form-control">
+                        </div>
 
-</html>
-<?php 
-    } ?>
+                        <div class="form-group col-md-6 mb-3">
+                            <label for="confirm_password" class="form-tabel mb-3"> تأكيد كلمة المرور </label>
+                            <input type="password" name="confirm_password" class="form-control">
+                        </div>
+
+                        <div class="col-12">
+                            <button class="btn btn-secondary text-white px-5 fw-bold mt-4 rounded-1"
+                                name="update_password">تحديث</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</section>
+
+
+<?php require 'templates/html_end.php'; ?>
