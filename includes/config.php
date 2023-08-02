@@ -18,7 +18,7 @@ if(!defined('ROOT')) {
 }
 
 if(!defined('FOLDER')) {
-    define('FOLDER', 'mostaqel/rent/');
+    define('FOLDER', '');
 }
 
 
