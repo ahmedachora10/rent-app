@@ -29,7 +29,7 @@ if(isset($_POST['contact'])):
     endif;
 endif;
 
-$back = preg_replace("/\?(success|errors)=\w+/", '', $_SERVER['HTTP_REFERER']);
+$back = url('/');
 
 $params = $success !== null ? "success=". $success : null;
 $params .= $errors !== null ? "errors=". $errors : null;
