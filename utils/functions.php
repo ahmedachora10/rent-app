@@ -142,7 +142,7 @@ if(!function_exists('request')):
 
         $typePatterns = [
             'int'    => "/^-?\d+$/",
-            'string' => "/^[a-zA-Z0-9_\s\u0600-\u06FF]+$/", //"/^[a-zA-Z0-9_\s]+$/",
+            'string' => "/^[\p{Arabic}\p{L}\s]+$/u", //"/^[a-zA-Z0-9_\s]+$/",
             'mixed' => "/^.*$/",
             'email' => "/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/",
             'date' => "/^\d{4}-\d{2}-\d{2}$/"
