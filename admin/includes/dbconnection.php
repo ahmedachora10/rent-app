@@ -1,8 +1,9 @@
 <?php 
+
 define('DB_HOST','localhost');
-define('DB_USER','root');
-define('DB_PASS','');
-define('DB_NAME','rent');
+define('DB_USER','u907926278_rent');
+define('DB_PASS','[Qx65Xm88');
+define('DB_NAME','u907926278_rent');
 
 
 try
